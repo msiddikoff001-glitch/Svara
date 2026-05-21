@@ -44,10 +44,10 @@ import { type RotationSeat,useSeatRotation } from './features/gameRoom/hooks/use
 import { useTgBackButton } from './features/gameRoom/hooks/useTgBackButton';
 import { playCardFlickSound, playCardOpenSound, playPokerChipSound, playSvaraAnnounceSound, playTurnStartSound, playWinnerSound } from './features/gameRoom/sounds';
 import styles from './GameRoom.module.css';
+import { sendGameAction } from './services/gameSocket';
 import { hapticTap } from './services/haptics';
 import { getTelegramWebApp, shareToTelegram } from './services/telegram';
 import { useGameStore } from './store/gameStore';
-import { WS_EVENTS,wsClient } from './websocket';
 
 type Theme = 'light' | 'dark';
 type ThemePref = 'light' | 'dark' | 'system';
@@ -658,21 +658,17 @@ export default function GameRoom({
   const handleBlindBet = useCallback(() => {
     hapticTap();
     triggerBetFlight(blindAmount);
-    wsClient.send(WS_EVENTS.PLACE_BET, {
-      roomId: room?.id,
-      kind: 'blind',
-      amount: blindAmount,
-    });
+    if (room?.id !== undefined) {
+      sendGameAction(String(room.id), 'blind', blindAmount);
+    }
   }, [room?.id, blindAmount, triggerBetFlight]);
 
   const handleCall = useCallback(() => {
     hapticTap();
     triggerBetFlight(callAmount);
-    wsClient.send(WS_EVENTS.PLACE_BET, {
-      roomId: room?.id,
-      kind: 'call',
-      amount: callAmount,
-    });
+    if (room?.id !== undefined) {
+      sendGameAction(String(room.id), 'call', callAmount);
+    }
   }, [room?.id, callAmount, triggerBetFlight]);
 
   const handleRaise = useCallback(() => {
@@ -684,11 +680,9 @@ export default function GameRoom({
     (amount: number) => {
       setRaiseOpen(false);
       triggerBetFlight(amount);
-      wsClient.send(WS_EVENTS.PLACE_BET, {
-        roomId: room?.id,
-        kind: 'raise',
-        amount,
-      });
+      if (room?.id !== undefined) {
+        sendGameAction(String(room.id), 'raise', amount);
+      }
     },
     [room?.id, triggerBetFlight],
   );
@@ -703,6 +697,9 @@ export default function GameRoom({
       turnTimeoutRef.current = null;
     }
     setMyAutoFolded(true);
+    if (room?.id !== undefined) {
+      sendGameAction(String(room.id), 'fold');
+    }
     if (!mySeat) {
       setCardsOpened(false);
       return;
@@ -713,7 +710,7 @@ export default function GameRoom({
         setCardsOpened(false);
       }, HAND_FOLD_FLIGHT_MS),
     );
-  }, [mySeat, triggerSeatFold]);
+  }, [room?.id, mySeat, triggerSeatFold]);
 
   // Keep the handlePass ref in sync for the RAF auto-pass.
   useEffect(() => {
@@ -1027,7 +1024,9 @@ export default function GameRoom({
         } catch {}
       }, HAND_ENTER_DURATION_MS),
     );
-    wsClient.send(WS_EVENTS.PLACE_BET, { roomId: room?.id, kind: 'open' });
+    if (room?.id !== undefined) {
+      sendGameAction(String(room.id), 'look');
+    }
   }, [audio, room?.id, cardsOpened]);
 
   const handleChatPick = useCallback(
