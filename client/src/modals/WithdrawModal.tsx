@@ -1,0 +1,264 @@
+import { useState } from 'react';
+
+import { MethodBadge } from '../components/icons/MethodBadge';
+import { ErrorMsg } from '../components/ui/ErrorMsg';
+import { InfoRows } from '../components/ui/InfoRows';
+import { MethodList } from '../components/ui/MethodList';
+import { PrimaryButton } from '../components/ui/PrimaryButton';
+import { QuickAmount } from '../components/ui/QuickAmount';
+import { Sheet } from '../components/ui/Sheet';
+import { TextInput } from '../components/ui/TextInput';
+import { WITHDRAW_METHODS } from '../data/mocks';
+import { COLORS } from '../designSystem';
+import { hapticSuccess, hapticTap } from '../services/haptics';
+import styles from './WithdrawModal.module.css';
+
+export interface WithdrawModalProps {
+  onClose: () => void;
+  balance: number;
+  onWithdrawn: (amount: number) => void;
+}
+
+export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalProps) {
+  const [step, setStep] = useState(1);
+  const [methodId, setMethodId] = useState<string | null>(null);
+  const [amountInput, setAmountInput] = useState('');
+  const [addressInput, setAddressInput] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+  const currentMethod = WITHDRAW_METHODS.find((value) => value.id === methodId);
+
+  function validate() {
+    setErrorMsg('');
+    const value = parseFloat(amountInput);
+    if (!amountInput || Number.isNaN(value) || value <= 0) {
+      setErrorMsg('Введите корректную сумму');
+      return;
+    }
+    if (!currentMethod) {
+      setErrorMsg('Выберите способ вывода');
+      return;
+    }
+    if (value < currentMethod.min) {
+      setErrorMsg('Минимальная сумма: ' + currentMethod.min + ' USDT');
+      return;
+    }
+    if (value > balance) {
+      setErrorMsg('Недостаточно средств');
+      return;
+    }
+    if (!addressInput.trim()) {
+      setErrorMsg('Введите адрес / номер карты');
+      return;
+    }
+    if (currentMethod.id === 'card' && addressInput.replace(/\s/g, '').length < 16) {
+      setErrorMsg('Введите номер карты полностью');
+      return;
+    }
+    hapticTap();
+    setStep(3);
+  }
+  function submitWithdrawal() {
+    hapticSuccess();
+    setSubmitted(true);
+  }
+  function closeAfterSubmit() {
+    onWithdrawn(parseFloat(amountInput));
+    onClose();
+  }
+
+  if (submitted) {
+    return (
+      <div onClick={closeAfterSubmit} className={styles.successOverlay}>
+        <div onClick={(event) => event.stopPropagation()} className={styles.successCard}>
+          <div className={styles.successBadge}>
+            <svg
+              width={36}
+              height={36}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="#fff"
+              strokeWidth={3.2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={styles.successCheck}
+            >
+              <polyline points="4 13 9 18 20 6" />
+            </svg>
+          </div>
+          <div className={styles.successKicker}>{'ЗАЯВКА СОЗДАНА'}</div>
+          <div className={styles.successAmount}>
+            {'−'}
+            {parseFloat(amountInput || '0').toFixed(2)}
+            {' USDT'}
+          </div>
+          <div className={styles.successHint}>{'Заявка на вывод успешно создана'}</div>
+          <button onClick={closeAfterSubmit} className={styles.successBtn}>
+            {'Понятно'}
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <Sheet onClose={onClose} scrollKey={step}>
+      {step === 1 && (
+        <div>
+          <div className={styles.title}>{'Вывести USDT'}</div>
+          <div className={styles.subtitle}>{'Выберите способ вывода'}</div>
+          <MethodList methods={WITHDRAW_METHODS} sel={methodId} onSel={setMethodId} />
+          <PrimaryButton
+            onClick={() => methodId && setStep(2)}
+            disabled={!methodId}
+            color={COLORS.red}
+          >
+            {'Далее'}
+          </PrimaryButton>
+        </div>
+      )}
+      {step === 2 && currentMethod && (
+        <div>
+          <div className={styles.headerRow}>
+            <button
+              onClick={() => {
+                setStep(1);
+                setErrorMsg('');
+              }}
+              className={styles.backBtn}
+            >
+              {'Назад'}
+            </button>
+            <div className={styles.methodRow}>
+              <MethodBadge id={currentMethod.id} s={22} />
+              {currentMethod.label}
+            </div>
+          </div>
+          <div className={styles.fieldLabel}>{'Сумма (USDT)'}</div>
+          <QuickAmount
+            value={amountInput}
+            onChange={(value) => {
+              setAmountInput(value);
+              setErrorMsg('');
+            }}
+          />
+          <TextInput
+            value={amountInput}
+            onChange={(value) => {
+              setAmountInput(value.target.value);
+              setErrorMsg('');
+            }}
+            placeholder={'Мин. ' + currentMethod.min + ' USDT'}
+            type="tel"
+            inputMode="decimal"
+            className={styles.fieldGap}
+          />
+          <div className={styles.fieldLabel}>
+            {currentMethod.id === 'card' ? 'Номер карты' : 'Адрес кошелька'}
+          </div>
+          <TextInput
+            value={addressInput}
+            onChange={(value) => {
+              if (currentMethod.id === 'card') {
+                const me = value.target.value.replace(/\D/g, '').slice(0, 16);
+                setAddressInput(me.replace(/(.{4})/g, '$1 ').trim());
+              } else setAddressInput(value.target.value);
+              setErrorMsg('');
+            }}
+            placeholder={
+              currentMethod.id === 'card'
+                ? '0000 0000 0000 0000'
+                : currentMethod.id === 'ton'
+                  ? 'UQ...'
+                  : 'TRX...'
+            }
+            type={currentMethod.id === 'card' ? 'tel' : 'text'}
+            inputMode={currentMethod.id === 'card' ? 'numeric' : 'text'}
+            autoComplete={currentMethod.id === 'card' ? 'cc-number' : 'off'}
+            maxLength={currentMethod.id === 'card' ? 19 : undefined}
+            className={styles.fieldGap}
+          />
+          <InfoRows
+            rows={[
+              ['Сумма', amountInput ? amountInput + ' USDT' : '—', undefined],
+              ['Комиссия', currentMethod.fee, COLORS.red],
+              ['Доступно', balance.toFixed(2) + ' USDT', COLORS.green],
+            ]}
+          />
+          <ErrorMsg msg={errorMsg} />
+          <PrimaryButton onClick={validate} color={COLORS.red}>
+            {'Вывести USDT'}
+          </PrimaryButton>
+        </div>
+      )}
+      {step === 3 && currentMethod && (
+        <div>
+          <div className={`${styles.headerRow} ${styles.tight}`}>
+            <button
+              onClick={() => {
+                setStep(2);
+                setErrorMsg('');
+              }}
+              className={styles.backBtn}
+            >
+              {'Назад'}
+            </button>
+            <div className={styles.confirmTitle}>{'Подтверждение вывода'}</div>
+          </div>
+          <div className={styles.methodLine}>
+            <MethodBadge id={currentMethod.id} s={18} />
+            {currentMethod.label}
+          </div>
+          <div className={styles.summaryBox}>
+            <div className={styles.summaryRow}>
+              <span className={styles.summaryLabel}>{'Сумма к выводу'}</span>
+              <span className={styles.summaryValueBig}>
+                {parseFloat(amountInput).toFixed(2) + ' USDT'}
+              </span>
+            </div>
+            <div className={`${styles.summaryRow} ${styles.start}`}>
+              <span className={`${styles.summaryLabel} ${styles.fixed}`}>
+                {currentMethod.id === 'card' ? 'Номер карты' : 'Адрес'}
+              </span>
+              <span className={styles.summaryAddress}>{addressInput}</span>
+            </div>
+            <div className={styles.summaryRow}>
+              <span className={styles.summaryLabel}>
+                {currentMethod.id === 'card' ? 'Платёжная система' : 'Сеть'}
+              </span>
+              <span className={styles.summaryValue}>{currentMethod.label}</span>
+            </div>
+            <div className={styles.summaryRow}>
+              <span className={styles.summaryLabel}>{'Комиссия'}</span>
+              <span className={styles.summaryFee}>{currentMethod.fee}</span>
+            </div>
+            <div className={`${styles.summaryRow} ${styles.last}`}>
+              <span className={styles.summaryLabel}>{'К получению'}</span>
+              <span className={styles.summaryReceive}>
+                {parseFloat(amountInput).toFixed(2) + ' USDT'}
+              </span>
+            </div>
+          </div>
+          <div className={styles.noticeBox}>
+            {'Проверьте данные. После подтверждения вывод отменить нельзя.'}
+          </div>
+          <PrimaryButton
+            onClick={submitWithdrawal}
+            color={COLORS.red}
+            className={styles.confirmBtn}
+          >
+            {'Подтвердить вывод'}
+          </PrimaryButton>
+          <button
+            onClick={() => {
+              setStep(2);
+              setErrorMsg('');
+            }}
+            className={styles.cancelBtn}
+          >
+            {'Отменить'}
+          </button>
+        </div>
+      )}
+    </Sheet>
+  );
+}
