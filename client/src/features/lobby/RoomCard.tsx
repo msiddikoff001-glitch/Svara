@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { COLORS } from '../../designSystem';
 import type { Room } from '../../types/domain';
@@ -27,15 +28,16 @@ const LockIcon = () => (
 );
 
 function RoomCardImpl({ room, onJoin, onWatch }: RoomCardProps) {
+  const { t } = useTranslation();
   const isFull = room.players >= room.max;
   const hasPassword = Boolean(room.password);
 
   return (
     <div className={styles.card}>
       <div className={styles.headerRow}>
-        <div className={styles.headerCell}>Комната</div>
-        <div className={styles.headerCell}>Игроки</div>
-        <div className={styles.headerCell}>Ставка</div>
+        <div className={styles.headerCell}>{t('room_header')}</div>
+        <div className={styles.headerCell}>{t('players_header')}</div>
+        <div className={styles.headerCell}>{t('stake_header')}</div>
         <div className={styles.headerSpacer} />
       </div>
       <div className={styles.divider} />
@@ -61,7 +63,7 @@ function RoomCardImpl({ room, onJoin, onWatch }: RoomCardProps) {
             }}
           >
             {hasPassword && !isFull && <LockIcon />}
-            {isFull ? 'Полная' : 'Войти'}
+            {isFull ? t('room_full') : t('room_enter')}
           </button>
           <button
             disabled={hasPassword}
@@ -72,7 +74,7 @@ function RoomCardImpl({ room, onJoin, onWatch }: RoomCardProps) {
               cursor: hasPassword ? 'not-allowed' : 'pointer',
             }}
           >
-            Смотреть
+            {t('room_watch')}
           </button>
         </div>
       </div>

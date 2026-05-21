@@ -30,6 +30,39 @@ export const getTelegramUserId = (): number | null => {
   return typeof id === 'number' && Number.isFinite(id) ? id : null;
 };
 
+/**
+ * Cosmetic user fields (name, photo) for rendering — same trust caveat as
+ * `getTelegramUserId`: not safe for authorisation, never trusted by the
+ * server. The signed `initData` string + the `/auth/login` flow is the
+ * real authentication path.
+ */
+export interface TelegramUserProfile {
+  id?: number;
+  first_name?: string;
+  last_name?: string;
+  username?: string;
+  photo_url?: string;
+}
+
+export const getTelegramUser = (): TelegramUserProfile | null => {
+  const telegram = getTelegramWebApp();
+  return telegram?.initDataUnsafe?.user ?? null;
+};
+
+/** Raw signed `initData` string + start_param for the `/auth/login` flow. */
+export interface TelegramAuthPayload {
+  initData: string;
+  startPayload?: string;
+}
+
+export const getTelegramAuthPayload = (): TelegramAuthPayload | null => {
+  const telegram = getTelegramWebApp();
+  const initData = telegram?.initData;
+  if (typeof initData !== 'string' || initData.length === 0) return null;
+  const startPayload = telegram?.initDataUnsafe?.start_param;
+  return { initData, startPayload: typeof startPayload === 'string' ? startPayload : undefined };
+};
+
 const safeInvoke = (fn: (() => void) | undefined): void => {
   if (typeof fn !== 'function') return;
   try {

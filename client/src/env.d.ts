@@ -3,6 +3,7 @@
 interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string;
   readonly VITE_WS_URL?: string;
+  readonly VITE_SOCKET_URL?: string;
 }
 
 interface ImportMeta {
@@ -25,7 +26,14 @@ interface TelegramWebAppHapticFeedback {
 }
 
 interface TelegramWebAppInitDataUnsafe {
-  user?: { id?: number; first_name?: string; last_name?: string; username?: string };
+  user?: {
+    id?: number;
+    first_name?: string;
+    last_name?: string;
+    username?: string;
+    photo_url?: string;
+  };
+  start_param?: string;
 }
 
 interface TelegramWebApp {

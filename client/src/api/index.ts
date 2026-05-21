@@ -1,5 +1,7 @@
+export type { LoginResponse } from './auth';
+export { loginWithInitData } from './auth';
 export type { HttpMethod, HttpRequestOptions } from './client';
-export { httpRequest } from './client';
+export { getAuthToken, httpRequest, setAuthToken } from './client';
 export { fetchLeaderboard } from './leaderboard';
 export type {
   CreateDepositInput,

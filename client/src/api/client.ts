@@ -1,20 +1,24 @@
 /**
  * Tiny fetch wrapper.
  *
- * Today the app runs entirely on mocks (see `api/*.ts`). The wrapper is here
- * so when a real backend is wired up:
+ * Stage 2 wires up the REST endpoints exposed by the svarapro NestJS
+ * backend. Endpoint modules (`api/rooms.ts`, `api/user.ts`, …) call
+ * `httpRequest` / `httpRequestParsed` instead of returning mocks.
  *
- *   1. Set `VITE_API_BASE_URL` in `.env` (e.g. https://api.svara.app/v1).
- *   2. Swap the mock body of each endpoint module for `httpRequest(...)` or
- *      `httpRequestParsed(schema, ...)` calls.
+ * Auth flow (see `api/auth.ts`):
+ *   1. On boot the client posts the Telegram `initData` to `/auth/login`
+ *      and gets back a JWT.
+ *   2. `setAuthToken(jwt)` is called from `authStore`.
+ *   3. Subsequent requests attach `Authorization: Bearer <jwt>`.
  *
- * `httpRequest`         — typed at compile time, no runtime check.
- * `httpRequestParsed`   — same, plus a Zod schema validates the response
- *                          before the caller sees it. Use this for every
- *                          endpoint whose schema lives in
- *                          `src/shared/protocol/api/schemas.ts`.
+ * Telegram `initData` is also forwarded on every request as
+ * `X-Telegram-Init-Data` for endpoints that re-validate it server-side.
  *
- * No third dependency is needed — `fetch` + zod is enough for a Mini App.
+ * `httpRequest`        — typed at compile time, no runtime check.
+ * `httpRequestParsed`  — same, plus a Zod schema validates the response
+ *                         before the caller sees it. Use this for every
+ *                         endpoint whose schema lives in
+ *                         `src/shared/protocol/api/schemas.ts`.
  */
 
 import type { z } from 'zod';
@@ -22,6 +26,16 @@ import type { z } from 'zod';
 import { validateApiResponse } from '../shared/protocol';
 
 const BASE_URL: string = import.meta.env?.VITE_API_BASE_URL ?? '';
+
+let authToken: string | null = null;
+
+/** Set / clear the JWT used by subsequent requests. */
+export const setAuthToken = (token: string | null): void => {
+  authToken = token;
+};
+
+/** Current JWT (mainly for the socket layer to forward in `auth`). */
+export const getAuthToken = (): string | null => authToken;
 
 const buildUrl = (path: string): string => {
   if (/^https?:/i.test(path)) return path;
@@ -53,6 +67,7 @@ export const httpRequest = async <T = unknown>(
     headers: {
       'Content-Type': 'application/json',
       ...(initData ? { 'X-Telegram-Init-Data': initData } : {}),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
