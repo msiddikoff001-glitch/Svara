@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import { memo, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { COLORS, layout, zIndex } from '../../designSystem';
 import { hapticTap } from '../../services/haptics';
@@ -17,18 +18,19 @@ import {
 
 interface NavTabConfig {
   id: ScreenName;
-  label: string;
+  /** i18n key under the `common` namespace. */
+  labelKey: string;
   Icon: ComponentType<NavigationIconProps>;
 }
 
 const SCREEN_TABS_LEFT: NavTabConfig[] = [
-  { id: SCREENS.lobby, label: 'Лобби', Icon: LobbyIcon },
-  { id: SCREENS.rating, label: 'Рейтинг', Icon: RatingIcon },
+  { id: SCREENS.lobby, labelKey: 'tab_lobby', Icon: LobbyIcon },
+  { id: SCREENS.rating, labelKey: 'tab_rating', Icon: RatingIcon },
 ];
 
 const SCREEN_TABS_RIGHT: NavTabConfig[] = [
-  { id: SCREENS.tournament, label: 'Турниры', Icon: TournamentIcon },
-  { id: SCREENS.profile, label: 'Профиль', Icon: ProfileIcon },
+  { id: SCREENS.tournament, labelKey: 'tab_tournaments', Icon: TournamentIcon },
+  { id: SCREENS.profile, labelKey: 'tab_profile', Icon: ProfileIcon },
 ];
 
 interface NavTabProps {
@@ -38,6 +40,7 @@ interface NavTabProps {
 }
 
 function NavTab({ tab, isActive, onSelect }: NavTabProps) {
+  const { t } = useTranslation();
   const color = isActive ? COLORS.accent : COLORS.hint;
   return (
     <button onClick={() => onSelect(tab.id)} className={styles.button}>
@@ -46,13 +49,14 @@ function NavTab({ tab, isActive, onSelect }: NavTabProps) {
         className={`${styles.label} ${isActive ? styles.labelActive : ''}`}
         style={{ color }}
       >
-        {tab.label}
+        {t(tab.labelKey)}
       </span>
     </button>
   );
 }
 
 function NavigationBarImpl() {
+  const { t } = useTranslation();
   const activeScreen = useUiStore((state) => state.activeScreen);
   const setActiveScreen = useUiStore((state) => state.setActiveScreen);
   const openModal = useUiStore((state) => state.openModal);
@@ -86,7 +90,7 @@ function NavigationBarImpl() {
       <button onClick={handleCreateClick} className={styles.button}>
         <CreateActionIcon stroke={COLORS.hint} />
         <span className={styles.label} style={{ color: COLORS.hint }}>
-          Создать
+          {t('tab_create')}
         </span>
       </button>
       {SCREEN_TABS_RIGHT.map((tab) => (

@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { COLORS } from '../../designSystem';
 import styles from './LobbyFilterBar.module.css';
@@ -23,6 +24,7 @@ function LobbyFilterBarImpl({
   onToggleOnlyAvailable,
   onOpenFilters,
 }: LobbyFilterBarProps) {
+  const { t } = useTranslation();
   return (
     <div className={styles.container}>
       <div className={styles.searchWrap}>
@@ -44,12 +46,12 @@ function LobbyFilterBarImpl({
           className={'svr-search ' + styles.searchInput}
           value={searchValue}
           onChange={(event) => onSearchChange(event.target.value)}
-          placeholder="Поиск комнаты..."
+          placeholder={t('search_room_placeholder')}
           inputMode="numeric"
         />
       </div>
 
-      <span className={styles.toggleLabel}>Доступны</span>
+      <span className={styles.toggleLabel}>{t('filter_only_available')}</span>
 
       <div
         onClick={onToggleOnlyAvailable}

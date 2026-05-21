@@ -1,9 +1,17 @@
 import { create } from 'zustand';
 
-import { fetchRooms } from '../api/rooms';
+import { __testing__ as roomsTesting, fetchRooms } from '../api/rooms';
 import { BET_LADDER } from '../constants/bets';
 import { MOCK_ROOMS } from '../data/mocks';
+import { onSocketEvent } from '../services/socket';
 import type { Room } from '../types/domain';
+
+const { mapServerRoomToClient } = roomsTesting;
+
+interface RoomsSocketFrame {
+  action?: 'initial' | 'update';
+  rooms?: Array<Parameters<typeof mapServerRoomToClient>[0]>;
+}
 
 export type RoomMode = 'join' | 'watch';
 export type SeatCountFilter = 'all' | 2 | 3 | 4 | 5 | 6;
@@ -103,3 +111,22 @@ export const useRoomStore = create<RoomStoreState>((set, get) => ({
 
   isJoinedTournament: (tournamentId) => get().joinedTournamentIds.has(tournamentId),
 }));
+
+/**
+ * Subscribe the store to live `rooms` pushes from the server's
+ * `RoomsGateway`. Idempotent — `onSocketEvent` returns a teardown which
+ * we ignore (the lobby listens for the entire app lifetime).
+ *
+ * The server emits `{ action: 'initial' | 'update', rooms: ServerRoom[] }`;
+ * we filter privates (their password is the room id) and map to the
+ * client shape so existing components keep working.
+ */
+export const subscribeRoomSocket = (): void => {
+  onSocketEvent<RoomsSocketFrame>('rooms', (frame) => {
+    if (!frame || !Array.isArray(frame.rooms)) return;
+    const rooms = frame.rooms
+      .filter((room) => room.type === 'public' || room.isSystem)
+      .map(mapServerRoomToClient);
+    useRoomStore.setState({ rooms });
+  });
+};

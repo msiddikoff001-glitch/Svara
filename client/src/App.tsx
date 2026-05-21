@@ -9,6 +9,7 @@ import { ModalsManager } from './components/modals/ModalsManager';
 import { SplashScreen } from './components/SplashScreen';
 import { ToastViewport } from './components/ToastViewport';
 import { useBackButton } from './hooks/useBackButton';
+import { useBootstrap } from './hooks/useBootstrap';
 import { useScrollToTopOn } from './hooks/useScrollToTopOn';
 import { useTelegram } from './hooks/useTelegram';
 import { useTheme } from './hooks/useTheme';
@@ -31,6 +32,7 @@ import { SCREENS, TOURNAMENT_TABS, useUiStore } from './store/uiStore';
  */
 function App() {
   useTelegram();
+  useBootstrap();
   const { themePref, activeTheme, setThemePref } = useTheme();
 
   const isSplashVisible = useUiStore((state) => state.isSplashVisible);
