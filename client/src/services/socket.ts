@@ -2,16 +2,18 @@
  * Socket.IO client.
  *
  * The svarapro backend exposes its real-time API via socket.io (see
- * `server/src/modules/rooms/rooms.gateway.ts` and the game gateway).
+ * `server/src/modules/rooms/rooms.gateway.ts` and `game.gateway.ts`).
  * This module is the single entry point the client uses to talk to it.
  *
- * Stage 2 wires up the `rooms` event used by the lobby. Stage 3 will
- * add the game-room events on top of the same connection.
- *
  * Behaviour:
- *   - `connect(token)`        — establish (or re-establish) the socket
- *                                with the JWT attached in the
- *                                socket.io `auth` payload.
+ *   - `connect(options)`       — establish (or re-establish) the socket.
+ *                                `options.token` is the JWT issued by
+ *                                `/auth/login`. `options.telegramId` /
+ *                                `options.userData` are forwarded in
+ *                                the socket.io `auth` payload because
+ *                                the legacy GameGateway reads them
+ *                                from `client.handshake.auth.telegramId`
+ *                                / `userData`.
  *   - `disconnect()`           — tear down the socket.
  *   - `on(event, handler)`     — subscribe; returns an unsubscriber.
  *   - `emit(event, payload)`   — fire-and-forget send; buffers silently
@@ -29,6 +31,19 @@ import type { Socket } from 'socket.io-client';
 import { io } from 'socket.io-client';
 
 import { CONNECTION_STATUS, useConnectionStore } from '../store/connectionStore';
+
+export interface SocketUserData {
+  username: string;
+  avatar: string;
+}
+
+export interface ConnectSocketOptions {
+  token?: string | null;
+  /** Telegram user id (string). Required by the GameGateway handshake. */
+  telegramId?: string | null;
+  /** Cosmetic profile for `sit_down` — forwarded in the handshake. */
+  userData?: SocketUserData | null;
+}
 
 type SocketHandler<P = unknown> = (payload: P) => void;
 type SocketUnsubscribe = () => void;
@@ -49,14 +64,30 @@ const replayPendingListeners = (s: Socket): void => {
   });
 };
 
-export const connectSocket = (token: string | null): void => {
+/**
+ * Backwards-compatible overload: `connectSocket(token)` keeps working for
+ * the Stage-2 lobby bootstrap that didn't pass `telegramId` yet.
+ */
+export function connectSocket(token: string | null): void;
+export function connectSocket(options: ConnectSocketOptions): void;
+export function connectSocket(
+  arg: string | null | ConnectSocketOptions,
+): void {
   if (!SOCKET_URL) return;
   if (socket?.connected) return;
+
+  const options: ConnectSocketOptions =
+    arg === null || typeof arg === 'string' ? { token: arg } : arg;
+
+  const auth: Record<string, unknown> = {};
+  if (options.token) auth.token = options.token;
+  if (options.telegramId) auth.telegramId = options.telegramId;
+  if (options.userData) auth.userData = options.userData;
 
   setStatus(CONNECTION_STATUS.connecting);
   socket = io(SOCKET_URL, {
     transports: ['websocket'],
-    auth: token ? { token } : undefined,
+    auth: Object.keys(auth).length > 0 ? auth : undefined,
     reconnection: true,
   });
 
@@ -65,7 +96,7 @@ export const connectSocket = (token: string | null): void => {
   socket.on('connect_error', () => setStatus(CONNECTION_STATUS.closed));
 
   replayPendingListeners(socket);
-};
+}
 
 export const disconnectSocket = (): void => {
   if (!socket) return;

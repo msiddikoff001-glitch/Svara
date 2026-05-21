@@ -10,6 +10,7 @@ import { SplashScreen } from './components/SplashScreen';
 import { ToastViewport } from './components/ToastViewport';
 import { useBackButton } from './hooks/useBackButton';
 import { useBootstrap } from './hooks/useBootstrap';
+import { useGameSocket } from './hooks/useGameSocket';
 import { useScrollToTopOn } from './hooks/useScrollToTopOn';
 import { useTelegram } from './hooks/useTelegram';
 import { useTheme } from './hooks/useTheme';
@@ -33,6 +34,7 @@ import { SCREENS, TOURNAMENT_TABS, useUiStore } from './store/uiStore';
 function App() {
   useTelegram();
   useBootstrap();
+  useGameSocket();
   const { themePref, activeTheme, setThemePref } = useTheme();
 
   const isSplashVisible = useUiStore((state) => state.isSplashVisible);
