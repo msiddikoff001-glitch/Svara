@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { initiateDeposit, type PaymentInstructions } from '../../api/payments';
 import { DEPOSIT_METHODS } from '../../data/mocks';
@@ -42,6 +43,7 @@ export interface UseDepositFlowResult {
  * (step 6) since the backend doesn't expose a card-acquirer flow yet.
  */
 export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepositFlowResult {
+  const { t } = useTranslation();
   const [step, setStep] = useState<number>(1);
   const [methodId, setMethodId] = useState<string | null>(null);
   const [amountInput, setAmountInput] = useState<string>('');
@@ -90,7 +92,7 @@ export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepos
       } catch (error) {
         if (cancelled || requestKeyRef.current !== key) return;
         const message =
-          error instanceof Error ? error.message : 'Не удалось создать депозит';
+          error instanceof Error ? error.message : t('deposit_failed');
         setErrorMsg(message);
         // Roll back to the amount step so the user can retry without
         // losing their input.
@@ -101,7 +103,7 @@ export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepos
     return () => {
       cancelled = true;
     };
-  }, [step, methodId, isCard, amountInput]);
+  }, [step, methodId, isCard, amountInput, t]);
 
   useEffect(() => {
     if (step !== 5) {

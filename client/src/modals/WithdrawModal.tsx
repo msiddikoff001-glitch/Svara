@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { initiateWithdraw } from '../api/payments';
 import { MethodBadge } from '../components/icons/MethodBadge';
@@ -23,6 +24,7 @@ export interface WithdrawModalProps {
 }
 
 export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalProps) {
+  const { t } = useTranslation();
   const savedWalletAddress = useAuthStore((state) => state.user.walletAddress);
   const saveWalletAddress = useProfileStore((state) => state.saveWalletAddress);
 
@@ -50,27 +52,27 @@ export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalPr
     setErrorMsg('');
     const value = parseFloat(amountInput);
     if (!amountInput || Number.isNaN(value) || value <= 0) {
-      setErrorMsg('Введите корректную сумму');
+      setErrorMsg(t('withdraw_invalid_amount'));
       return;
     }
     if (!currentMethod) {
-      setErrorMsg('Выберите способ вывода');
+      setErrorMsg(t('withdraw_select_method'));
       return;
     }
     if (value < currentMethod.min) {
-      setErrorMsg('Минимальная сумма: ' + currentMethod.min + ' USDT');
+      setErrorMsg(t('withdraw_min_amount', { min: currentMethod.min }));
       return;
     }
     if (value > balance) {
-      setErrorMsg('Недостаточно средств');
+      setErrorMsg(t('withdraw_insufficient_funds'));
       return;
     }
     if (!addressInput.trim()) {
-      setErrorMsg('Введите адрес / номер карты');
+      setErrorMsg(t('withdraw_enter_address'));
       return;
     }
     if (currentMethod.id === 'card' && addressInput.replace(/\s/g, '').length < 16) {
-      setErrorMsg('Введите номер карты полностью');
+      setErrorMsg(t('withdraw_card_incomplete'));
       return;
     }
     hapticTap();
@@ -80,7 +82,7 @@ export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalPr
     if (!currentMethod || isSubmitting) return;
     const value = parseFloat(amountInput);
     if (!Number.isFinite(value) || value <= 0) {
-      setErrorMsg('Введите корректную сумму');
+      setErrorMsg(t('withdraw_invalid_amount'));
       setStep(2);
       return;
     }
@@ -116,7 +118,7 @@ export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalPr
       setSubmitted(true);
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Не удалось создать заявку';
+        error instanceof Error ? error.message : t('withdraw_failed');
       setErrorMsg(message);
       setStep(2);
     } finally {
@@ -311,7 +313,7 @@ export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalPr
             disabled={isSubmitting}
             className={styles.confirmBtn}
           >
-            {isSubmitting ? 'Отправка…' : 'Подтвердить вывод'}
+            {isSubmitting ? t('withdraw_submitting') : t('withdraw_confirm_button')}
           </PrimaryButton>
           <button
             onClick={() => {
