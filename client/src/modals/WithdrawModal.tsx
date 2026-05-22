@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
+import { initiateWithdraw } from '../api/payments';
 import { MethodBadge } from '../components/icons/MethodBadge';
 import { ErrorMsg } from '../components/ui/ErrorMsg';
 import { InfoRows } from '../components/ui/InfoRows';
@@ -11,6 +12,8 @@ import { TextInput } from '../components/ui/TextInput';
 import { WITHDRAW_METHODS } from '../data/mocks';
 import { COLORS } from '../designSystem';
 import { hapticSuccess, hapticTap } from '../services/haptics';
+import { useAuthStore } from '../store/authStore';
+import { useProfileStore } from '../store/profileStore';
 import styles from './WithdrawModal.module.css';
 
 export interface WithdrawModalProps {
@@ -20,13 +23,28 @@ export interface WithdrawModalProps {
 }
 
 export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalProps) {
+  const savedWalletAddress = useAuthStore((state) => state.user.walletAddress);
+  const saveWalletAddress = useProfileStore((state) => state.saveWalletAddress);
+
   const [step, setStep] = useState(1);
   const [methodId, setMethodId] = useState<string | null>(null);
   const [amountInput, setAmountInput] = useState('');
   const [addressInput, setAddressInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const currentMethod = WITHDRAW_METHODS.find((value) => value.id === methodId);
+
+  // Pre-fill the address field with the user's saved wallet (if any)
+  // whenever they switch to a non-card method. Card numbers are
+  // entered fresh every time.
+  useEffect(() => {
+    if (!currentMethod) return;
+    if (currentMethod.id === 'card') return;
+    if (savedWalletAddress && !addressInput) {
+      setAddressInput(savedWalletAddress);
+    }
+  }, [currentMethod, savedWalletAddress, addressInput]);
 
   function validate() {
     setErrorMsg('');
@@ -58,9 +76,52 @@ export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalPr
     hapticTap();
     setStep(3);
   }
-  function submitWithdrawal() {
-    hapticSuccess();
-    setSubmitted(true);
+  async function submitWithdrawal() {
+    if (!currentMethod || isSubmitting) return;
+    const value = parseFloat(amountInput);
+    if (!Number.isFinite(value) || value <= 0) {
+      setErrorMsg('Введите корректную сумму');
+      setStep(2);
+      return;
+    }
+
+    if (currentMethod.id === 'card') {
+      // Card payouts have no server flow yet — fall back to the
+      // pre-existing optimistic success behaviour so the UI doesn't
+      // regress until the acquirer integration lands.
+      hapticSuccess();
+      setSubmitted(true);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMsg('');
+    try {
+      await initiateWithdraw({
+        methodId: currentMethod.id,
+        amount: value,
+        address: addressInput.trim(),
+      });
+      // Persist the wallet address server-side so subsequent
+      // withdrawals can pre-fill it. Failures here shouldn't block
+      // the success UI — the withdrawal itself already went through.
+      if (addressInput.trim() && addressInput.trim() !== savedWalletAddress) {
+        try {
+          await saveWalletAddress(addressInput.trim());
+        } catch {
+          /* ignore — non-critical persistence */
+        }
+      }
+      hapticSuccess();
+      setSubmitted(true);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Не удалось создать заявку';
+      setErrorMsg(message);
+      setStep(2);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
   function closeAfterSubmit() {
     onWithdrawn(parseFloat(amountInput));
@@ -241,12 +302,16 @@ export function WithdrawModal({ onClose, balance, onWithdrawn }: WithdrawModalPr
           <div className={styles.noticeBox}>
             {'Проверьте данные. После подтверждения вывод отменить нельзя.'}
           </div>
+          <ErrorMsg msg={errorMsg} />
           <PrimaryButton
-            onClick={submitWithdrawal}
+            onClick={() => {
+              void submitWithdrawal();
+            }}
             color={COLORS.red}
+            disabled={isSubmitting}
             className={styles.confirmBtn}
           >
-            {'Подтвердить вывод'}
+            {isSubmitting ? 'Отправка…' : 'Подтвердить вывод'}
           </PrimaryButton>
           <button
             onClick={() => {

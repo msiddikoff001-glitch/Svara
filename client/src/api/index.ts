@@ -7,6 +7,7 @@ export type {
   CreateDepositInput,
   CreateWithdrawalInput,
   DepositReceipt,
+  PaymentInstructions,
   WithdrawalReceipt,
 } from './payments';
 export {
@@ -14,6 +15,9 @@ export {
   createWithdrawal,
   fetchDepositMethods,
   fetchWithdrawMethods,
+  initiateDeposit,
+  initiateWithdraw,
+  methodIdToCurrency,
 } from './payments';
 export { fetchRoomById, fetchRooms, joinRoomByCode } from './rooms';
 export {

@@ -9,27 +9,12 @@ import { MethodHeader } from '../components/MethodHeader';
 import { WarningRow } from '../components/WarningRow';
 import styles from '../DepositSheet.module.css';
 
-// TODO(backend): once `paymentsApi.createDeposit()` is live, the deposit
-// address is returned per-method from the server. Strip the local mocks.
-const MOCK_DEPOSIT_ADDRESSES: Record<'ton' | 'usdt', string> = {
-  ton: 'UQBxxxxxxxxxxxxxxxxxxxxxxxxK9f',
-  usdt: 'TRXxxxxxxxxxxxxxxxxxxxxm4Kz',
-};
-
 export interface CryptoPaymentStepMethod {
   id: string;
   label: string;
   coin: string | null;
   netName: string | null;
   network: string | null;
-}
-
-function getDepositAddress(method?: CryptoPaymentStepMethod | null): string {
-  if (!method) return '';
-  if (method.id === 'ton' || method.id === 'usdt') {
-    return MOCK_DEPOSIT_ADDRESSES[method.id];
-  }
-  return MOCK_DEPOSIT_ADDRESSES.usdt;
 }
 
 function copyToClipboard(text: string) {
@@ -44,29 +29,46 @@ export interface CryptoPaymentStepProps {
   method: CryptoPaymentStepMethod;
   amount: string;
   secondsLeft: number;
+  /** Real deposit address from `POST /finances/transaction`. */
+  address: string;
+  /** Tracker id used by the backend / support to look up the deposit. */
+  trackerId: string;
   onConfirm: () => void;
   onCancel: () => void;
 }
+
+const SHORT_TRACKER = (value: string): string =>
+  value.length > 16 ? `${value.slice(0, 8)}…${value.slice(-8)}` : value;
 
 function CryptoPaymentStepImpl({
   method,
   amount,
   secondsLeft,
+  address,
+  trackerId,
   onConfirm,
   onCancel,
 }: CryptoPaymentStepProps) {
-  const [copied, setCopied] = useState(false);
-  const depositAddress = getDepositAddress(method);
+  const [copiedAddress, setCopiedAddress] = useState(false);
+  const [copiedTracker, setCopiedTracker] = useState(false);
   const amountFixed = parseFloat(amount).toFixed(2);
   const amountUnit = method.id === 'ton' ? 'TON' : 'USDT';
 
-  const handleCopy = useCallback(() => {
-    copyToClipboard(depositAddress);
+  const handleCopyAddress = useCallback(() => {
+    copyToClipboard(address);
     hapticTap();
-    setCopied(true);
-    const t = setTimeout(() => setCopied(false), 2000);
+    setCopiedAddress(true);
+    const t = setTimeout(() => setCopiedAddress(false), 2000);
     return () => clearTimeout(t);
-  }, [depositAddress]);
+  }, [address]);
+
+  const handleCopyTracker = useCallback(() => {
+    copyToClipboard(trackerId);
+    hapticTap();
+    setCopiedTracker(true);
+    const t = setTimeout(() => setCopiedTracker(false), 2000);
+    return () => clearTimeout(t);
+  }, [trackerId]);
 
   return (
     <div>
@@ -87,9 +89,21 @@ function CryptoPaymentStepImpl({
         <span className={styles.amountConvert}>≈ ${amountFixed}</span>
       </div>
       <div className={styles.fieldLabel}>{`Адрес для отправки (${method.network})`}</div>
-      <CopyRow value={depositAddress} copied={copied} onCopy={handleCopy} mono="address" />
+      <CopyRow value={address} copied={copiedAddress} onCopy={handleCopyAddress} mono="address" />
+      {trackerId && (
+        <>
+          <div className={styles.fieldLabel}>ID транзакции</div>
+          <CopyRow
+            value={SHORT_TRACKER(trackerId)}
+            copied={copiedTracker}
+            onCopy={handleCopyTracker}
+            mono="address"
+          />
+        </>
+      )}
       <DepositCountdown secondsLeft={secondsLeft} />
-      {copied && <CopyToast message="✓ Адрес скопирован" />}
+      {copiedAddress && <CopyToast message="✓ Адрес скопирован" />}
+      {copiedTracker && <CopyToast message="✓ ID скопирован" />}
       <PrimaryButton onClick={onConfirm} disabled={secondsLeft <= 0}>
         Я отправил
       </PrimaryButton>

@@ -39,6 +39,7 @@ export function DepositModal({ onClose, onDeposited }: DepositModalProps) {
     secondsLeft,
     success,
     currentMethod,
+    instructions,
     goToAmount,
     validateAndAdvance,
     confirmAndAdvance,
@@ -88,11 +89,13 @@ export function DepositModal({ onClose, onDeposited }: DepositModalProps) {
 
       {step === 3 && currentMethod && <ProcessingScreen id={currentMethod.id} />}
 
-      {step === 4 && currentMethod && currentMethod.id !== 'card' && (
+      {step === 4 && currentMethod && currentMethod.id !== 'card' && instructions && (
         <CryptoPaymentStep
           method={currentMethod}
           amount={amountInput}
           secondsLeft={secondsLeft}
+          address={instructions.address}
+          trackerId={instructions.trackerId}
           onConfirm={confirmAndAdvance}
           onCancel={onClose}
         />
