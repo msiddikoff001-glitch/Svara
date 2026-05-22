@@ -2,6 +2,7 @@ import type { ComponentType } from 'react';
 import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { featureFlags } from '../../constants/featureFlags';
 import { COLORS, layout, zIndex } from '../../designSystem';
 import { hapticTap } from '../../services/haptics';
 import type { ScreenName } from '../../store/uiStore';
@@ -23,13 +24,22 @@ interface NavTabConfig {
   Icon: ComponentType<NavigationIconProps>;
 }
 
+// Tabs are filtered through the feature flags so the bar can scale down
+// to lobby + profile when the tournaments / rating screens are hidden
+// (e.g. in production before the backend ships those endpoints). When a
+// flag is off the corresponding chunk also tree-shakes out of the
+// `ScreenRouter` switch.
 const SCREEN_TABS_LEFT: NavTabConfig[] = [
   { id: SCREENS.lobby, labelKey: 'tab_lobby', Icon: LobbyIcon },
-  { id: SCREENS.rating, labelKey: 'tab_rating', Icon: RatingIcon },
+  ...(featureFlags.ratingEnabled
+    ? [{ id: SCREENS.rating, labelKey: 'tab_rating', Icon: RatingIcon }]
+    : []),
 ];
 
 const SCREEN_TABS_RIGHT: NavTabConfig[] = [
-  { id: SCREENS.tournament, labelKey: 'tab_tournaments', Icon: TournamentIcon },
+  ...(featureFlags.tournamentsEnabled
+    ? [{ id: SCREENS.tournament, labelKey: 'tab_tournaments', Icon: TournamentIcon }]
+    : []),
   { id: SCREENS.profile, labelKey: 'tab_profile', Icon: ProfileIcon },
 ];
 

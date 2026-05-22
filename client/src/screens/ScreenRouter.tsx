@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { featureFlags } from '../constants/featureFlags';
 import { LobbyScreen } from '../features/lobby/LobbyScreen';
 import { ProfileScreen } from '../features/profile/ProfileScreen';
 import type { ThemeName, ThemePref } from '../hooks/useTheme';
@@ -69,16 +70,26 @@ export function ScreenRouter({ themePref, activeTheme, onSetThemePref }: ScreenR
     );
   }
 
-  if (activeScreen === SCREENS.rating) {
+  // Rating + Tournaments are gated behind feature flags so we can ship
+  // them in mock-only mode and turn them off in production until the
+  // backend exposes the underlying endpoints. When a flag is off and
+  // the screen is selected (e.g. because of stale persisted state) we
+  // fall through to the lobby branch below.
+  if (activeScreen === SCREENS.rating && featureFlags.ratingEnabled) {
     return <RatingScreen />;
   }
 
-  if (activeScreen === SCREENS.tournament && !activeTournament) {
+  if (
+    activeScreen === SCREENS.tournament &&
+    featureFlags.tournamentsEnabled &&
+    !activeTournament
+  ) {
     return <TournamentsListScreen />;
   }
 
   if (
     activeScreen === SCREENS.tournament &&
+    featureFlags.tournamentsEnabled &&
     activeTournament &&
     tournamentTab === TOURNAMENT_TABS.info
   ) {
@@ -93,6 +104,7 @@ export function ScreenRouter({ themePref, activeTheme, onSetThemePref }: ScreenR
 
   if (
     activeScreen === SCREENS.tournament &&
+    featureFlags.tournamentsEnabled &&
     activeTournament &&
     tournamentTab === TOURNAMENT_TABS.play
   ) {
@@ -119,5 +131,15 @@ export function ScreenRouter({ themePref, activeTheme, onSetThemePref }: ScreenR
     );
   }
 
-  return null;
+  // Fallback: the active screen is unknown or disabled by a feature
+  // flag — render the lobby so the user always has something to interact
+  // with instead of staring at a blank app shell.
+  return (
+    <LobbyScreen
+      user={user}
+      onDeposit={openDeposit}
+      onWithdraw={openWithdraw}
+      onRoom={handleOpenRoom}
+    />
+  );
 }
