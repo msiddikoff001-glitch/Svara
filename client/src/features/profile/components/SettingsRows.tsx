@@ -1,24 +1,11 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { Dropdown } from '../../../components/ui/Dropdown';
 import { BRAND, COLORS } from '../../../designSystem';
 import css from '../Profile.module.css';
 
 const SETTINGS_ICON_STROKE = BRAND.accent;
-
-const LANGUAGE_OPTIONS = [
-  { value: 'ru', label: '🇷🇺 Русский' },
-  { value: 'en', label: '🇬🇧 English' },
-  { value: 'uz', label: "🇺🇿 O'zbek" },
-  { value: 'tr', label: '🇹🇷 Türkçe' },
-  { value: 'kz', label: '🇰🇿 Қазақша' },
-];
-
-const THEME_OPTIONS = [
-  { value: 'dark', label: 'Тёмная' },
-  { value: 'light', label: 'Светлая' },
-  { value: 'system', label: 'Системная' },
-];
 
 interface MyIdRowProps {
   id: number | string;
@@ -31,6 +18,7 @@ interface MyIdRowProps {
  * parent so this row stays self-contained.
  */
 function MyIdRowImpl({ id, copied, onCopy }: MyIdRowProps) {
+  const { t } = useTranslation();
   return (
     <div className={css.rowCard}>
       <div className={css.rowIcon} style={{ background: COLORS.tintBlue }}>
@@ -50,13 +38,13 @@ function MyIdRowImpl({ id, copied, onCopy }: MyIdRowProps) {
           <line x1="16" y1="3" x2="14" y2="21" />
         </svg>
       </div>
-      <span className={css.rowLabel}>Мой ID</span>
+      <span className={css.rowLabel}>{t('my_id')}</span>
       <span className={css.rowSubtext}>{id}</span>
       <button
         onClick={onCopy}
         className={copied ? `${css.copyChip} ${css.copyChipActive}` : css.copyChip}
       >
-        {copied ? '✓ Copied' : 'Copy'}
+        {copied ? `✓ ${t('copied')}` : t('copy')}
       </button>
     </div>
   );
@@ -72,9 +60,19 @@ interface LanguageRowProps {
 
 /**
  * Language selector row. Uses the shared Dropdown UI primitive — the
- * dropdown owns its own popover state.
+ * dropdown owns its own popover state. Options are i18n-localised so
+ * Russian users see "Русский / English" while English users see
+ * "Russian / English".
  */
 function LanguageRowImpl({ value, onChange, chevronUrl }: LanguageRowProps) {
+  const { t } = useTranslation();
+  const options = useMemo(
+    () => [
+      { value: 'ru', label: `🇷🇺 ${t('russian')}` },
+      { value: 'en', label: `🇬🇧 ${t('english')}` },
+    ],
+    [t],
+  );
   return (
     <div className={css.rowCard}>
       <div className={css.rowIcon} style={{ background: COLORS.tintBlue }}>
@@ -93,7 +91,7 @@ function LanguageRowImpl({ value, onChange, chevronUrl }: LanguageRowProps) {
           <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
         </svg>
       </div>
-      <span className={css.rowLabel}>Язык</span>
+      <span className={css.rowLabel}>{t('current_language')}</span>
       <Dropdown
         value={value}
         onChange={onChange}
@@ -101,7 +99,7 @@ function LanguageRowImpl({ value, onChange, chevronUrl }: LanguageRowProps) {
         textColor={COLORS.text}
         panelBg={COLORS.bg2}
         triggerStyle={{ background: COLORS.bg3 }}
-        options={LANGUAGE_OPTIONS}
+        options={options}
       />
     </div>
   );
@@ -126,6 +124,15 @@ interface ThemeRowProps {
 }
 
 function ThemeRowImpl({ theme, themePref, onSetThemePref, onToggleTheme, chevronUrl }: ThemeRowProps) {
+  const { t } = useTranslation();
+  const themeOptions = useMemo(
+    () => [
+      { value: 'dark', label: t('dark_theme') },
+      { value: 'light', label: t('light_theme') },
+      { value: 'system', label: t('system_theme') },
+    ],
+    [t],
+  );
   const pref: ThemePref =
     themePref === 'system' || themePref === 'light' || themePref === 'dark' ? themePref : 'dark';
   const setPref = (value: string) => {
@@ -177,7 +184,7 @@ function ThemeRowImpl({ theme, themePref, onSetThemePref, onToggleTheme, chevron
       <div className={css.rowIcon} style={{ background: iconBg }}>
         {headIcon}
       </div>
-      <span className={css.rowLabel}>Тема</span>
+      <span className={css.rowLabel}>{t('theme')}</span>
       <Dropdown
         value={pref}
         onChange={(v) => setPref(v)}
@@ -185,7 +192,7 @@ function ThemeRowImpl({ theme, themePref, onSetThemePref, onToggleTheme, chevron
         textColor={COLORS.text}
         panelBg={COLORS.bg2}
         triggerStyle={{ background: COLORS.bg3 }}
-        options={THEME_OPTIONS}
+        options={themeOptions}
       />
     </div>
   );

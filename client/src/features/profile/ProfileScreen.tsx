@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { BalanceCard } from '../../components/BalanceCard';
 import { MOCK_TELEGRAM_USER_ID as MOCK_TG_ID } from '../../constants/bets';
-import { MOCK_TRANSACTIONS } from '../../data/mocks';
 import { COLORS } from '../../designSystem';
 import type { ThemeName, ThemePref } from '../../hooks/useTheme';
 import { hapticTap } from '../../services/haptics';
 import { getTelegramUserId } from '../../services/telegram';
+import { useProfileStore } from '../../store/profileStore';
 import type { User } from '../../types/domain';
 import type { TransactionFilter } from './components/HistoryPanel';
 import { HistoryPanel } from './components/HistoryPanel';
@@ -29,19 +30,21 @@ import { AgreementSheet } from './sheets/AgreementSheet';
 import { PartnerSheet } from './sheets/PartnerSheet';
 import { WalletSheet } from './sheets/WalletSheet';
 
-const HISTORY_LABEL = 'История депозитов';
-
 /**
  * Profile screen orchestrator.
  *
  * Owns three pieces of UI state that span multiple children:
  *   - `historyOpen`        — whether the deposit-history panel is expanded
  *   - which sheet is open  — wallet / partner / agreement
- *   - the saved wallet     — passed down to the wallet sheet
+ *   - the local language pref (mirrors i18n's current language)
  *
  * Per-component concerns (network selection in WalletSheet, copied state in
  * PartnerSheet, the history filter, ID-copy toast) all live inside the
  * children themselves so re-renders stay scoped.
+ *
+ * The actual user data (transactions, referral info, wallet address) is
+ * loaded into `profileStore` / `authStore` and read here via selectors,
+ * keeping this orchestrator free of network concerns.
  */
 interface ProfileScreenProps {
   user: User;
@@ -69,14 +72,29 @@ export function ProfileScreen({
   onSetThemePref,
   onToggleTheme,
 }: ProfileScreenProps) {
+  const { t, i18n } = useTranslation();
   const [transactionFilter, setTransactionFilter] = useState<TransactionFilter>('all');
   const [historyOpen, setHistoryOpen] = useState(false);
   const [idCopied, setIdCopied] = useState(false);
-  const [language, setLanguage] = useState('ru');
   const [walletSheetOpen, setWalletSheetOpen] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
   const [partnerOpen, setPartnerOpen] = useState(false);
   const [agreementOpen, setAgreementOpen] = useState(false);
+
+  const transactions = useProfileStore((s) => s.transactions);
+  const transactionsStatus = useProfileStore((s) => s.transactionsStatus);
+  const referralData = useProfileStore((s) => s.referralData);
+  const loadTransactions = useProfileStore((s) => s.loadTransactions);
+  const loadReferralData = useProfileStore((s) => s.loadReferralData);
+  const saveWalletAddress = useProfileStore((s) => s.saveWalletAddress);
+  const clearWalletAddress = useProfileStore((s) => s.clearWalletAddress);
+
+  // Hydrate the auxiliary profile data once the screen mounts. Re-renders
+  // won't refetch (the store ignores duplicate "loading" transitions
+  // because both loaders set the status before kicking off the request).
+  useEffect(() => {
+    void loadTransactions();
+    void loadReferralData();
+  }, [loadTransactions, loadReferralData]);
 
   // Reset copied-flag toast after a short window so users see feedback
   // without it lingering forever.
@@ -92,9 +110,12 @@ export function ProfileScreen({
   // avoid attributing every preview user to the same ID.
   const realTgUserId = getTelegramUserId();
   const displayedTgId = realTgUserId ?? MOCK_TG_ID;
-  const referralLink = realTgUserId
-    ? `https://t.me/MySvaraBot?startapp=${realTgUserId}`
-    : null;
+  // The server's referral link is the canonical source of truth (it
+  // encodes the bot username and the referrer's telegramId). Fall back to
+  // a synthesised link when running inside Telegram without the server.
+  const referralLink =
+    referralData?.referralLink ??
+    (realTgUserId ? `https://t.me/MySvaraBot?startapp=${realTgUserId}` : null);
 
   const chevronUrl = useMemo(() => buildChevronUrl(theme), [theme]);
 
@@ -104,51 +125,59 @@ export function ProfileScreen({
   const copyTelegramId = () => {
     try {
       navigator.clipboard?.writeText(String(displayedTgId));
-    } catch {}
+    } catch {
+      // Best-effort: clipboard is unavailable in some embeds.
+    }
     hapticTap();
     setIdCopied(true);
   };
 
+  const changeLanguage = (next: string) => {
+    if (next !== 'ru' && next !== 'en') return;
+    void i18n.changeLanguage(next);
+  };
+
+  const historyLabel = t('deposit_history');
   const menuItems = useMemo<MenuItem[]>(
     () => [
       {
         icon: <HistoryMenuIcon />,
         bg: COLORS.tintGreen,
-        label: HISTORY_LABEL,
+        label: historyLabel,
         onClick: () => setHistoryOpen((open) => !open),
       },
       {
         icon: <PartnerMenuIcon />,
         bg: COLORS.tintGold,
-        label: 'Партнерская программа',
+        label: t('referral_program'),
         onClick: () => setPartnerOpen(true),
       },
       {
         icon: <NewsMenuIcon />,
         bg: COLORS.tintRed,
-        label: 'Новостной канал',
+        label: t('news_channel'),
         onClick: () => {},
       },
       {
         icon: <AgreementMenuIcon />,
         bg: COLORS.tintPurple,
-        label: 'Пользовательское соглашение',
+        label: t('user_agreement'),
         onClick: () => setAgreementOpen(true),
       },
       {
         icon: <HowToPlayMenuIcon />,
         bg: COLORS.tintGold,
-        label: 'Как играть',
+        label: t('how_to_play'),
         onClick: () => {},
       },
       {
         icon: <SupportMenuIcon />,
         bg: COLORS.tintBlue,
-        label: 'Чат с поддержкой',
+        label: t('support_chat'),
         onClick: () => {},
       },
     ],
-    [],
+    [t, historyLabel],
   );
 
   return (
@@ -160,9 +189,13 @@ export function ProfileScreen({
         earned={user.earned}
       />
       <div className={css.menu}>
-        {idCopied && <div className={css.toast}>✓ ID скопирован</div>}
+        {idCopied && <div className={css.toast}>✓ {t('id_copied')}</div>}
         <MyIdRow id={displayedTgId} copied={idCopied} onCopy={copyTelegramId} />
-        <LanguageRow value={language} onChange={setLanguage} chevronUrl={chevronUrl} />
+        <LanguageRow
+          value={i18n.language}
+          onChange={changeLanguage}
+          chevronUrl={chevronUrl}
+        />
         <ThemeRow
           theme={theme}
           themePref={themePref}
@@ -176,31 +209,37 @@ export function ProfileScreen({
               icon={item.icon}
               bg={item.bg}
               label={item.label}
-              expanded={item.label === HISTORY_LABEL && historyOpen}
+              expanded={item.label === historyLabel && historyOpen}
               onClick={item.onClick}
             />
-            {item.label === HISTORY_LABEL && historyOpen && (
+            {item.label === historyLabel && historyOpen && (
               <HistoryPanel
-                transactions={MOCK_TRANSACTIONS}
+                transactions={transactions}
                 filter={transactionFilter}
                 onFilterChange={setTransactionFilter}
+                loading={transactionsStatus === 'loading' && transactions.length === 0}
               />
             )}
           </div>
         ))}
         <WithdrawWalletCard
-          walletAddress={walletAddress}
+          walletAddress={user.walletAddress ?? ''}
           onEdit={() => setWalletSheetOpen(true)}
         />
         {walletSheetOpen && (
           <WalletSheet
-            initialAddress={walletAddress}
-            onSaved={setWalletAddress}
+            initialAddress={user.walletAddress ?? ''}
+            onSave={saveWalletAddress}
+            onDelete={clearWalletAddress}
             onClose={() => setWalletSheetOpen(false)}
           />
         )}
         {partnerOpen && (
-          <PartnerSheet referralLink={referralLink} onClose={() => setPartnerOpen(false)} />
+          <PartnerSheet
+            referralLink={referralLink}
+            referralData={referralData}
+            onClose={() => setPartnerOpen(false)}
+          />
         )}
         {agreementOpen && <AgreementSheet onClose={() => setAgreementOpen(false)} />}
       </div>

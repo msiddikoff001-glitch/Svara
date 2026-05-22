@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { UsdtIcon } from '../../../components/icons/UsdtIcon';
 import { BRAND, COLORS, RADIUS } from '../../../designSystem';
@@ -12,12 +13,13 @@ interface WithdrawWalletCardProps {
 
 /**
  * Section that previews the user's saved withdraw wallet and opens the
- * wallet sheet for editing. The actual sheet lives in `WalletSheet.jsx`.
+ * wallet sheet for editing. The actual sheet lives in `WalletSheet.tsx`.
  */
 function WithdrawWalletCardImpl({ walletAddress, onEdit }: WithdrawWalletCardProps) {
+  const { t } = useTranslation();
   return (
     <div className={css.walletSection}>
-      <div className={css.walletSectionLabel}>Кошелек для вывода</div>
+      <div className={css.walletSectionLabel}>{t('wallet_for_withdraw')}</div>
       <div className={css.rowCard}>
         <UsdtIcon s={32} />
         <div style={{ flex: 1, minWidth: 0 } as CSSProperties}>
@@ -25,7 +27,7 @@ function WithdrawWalletCardImpl({ walletAddress, onEdit }: WithdrawWalletCardPro
           {walletAddress ? (
             <div className={css.walletAddressText}>{walletAddress}</div>
           ) : (
-            <div className={css.walletPlaceholder}>Не добавлен</div>
+            <div className={css.walletPlaceholder}>{t('wallet_not_added')}</div>
           )}
         </div>
         <button
@@ -43,7 +45,7 @@ function WithdrawWalletCardImpl({ walletAddress, onEdit }: WithdrawWalletCardPro
             fontFamily: 'inherit',
           } as CSSProperties}
         >
-          {walletAddress ? 'Изменить' : 'Добавить'}
+          {walletAddress ? t('change') : t('add')}
         </button>
       </div>
     </div>
