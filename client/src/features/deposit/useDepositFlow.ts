@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
+import { initiateDeposit, type PaymentInstructions } from '../../api/payments';
 import { DEPOSIT_METHODS } from '../../data/mocks';
 import { hapticSuccess, hapticTap } from '../../services/haptics';
 import { playSound } from '../../services/sound';
@@ -23,6 +24,7 @@ export interface UseDepositFlowResult {
   success: boolean;
   currentMethod: DepositMethod | null;
   isCard: boolean;
+  instructions: PaymentInstructions | null;
   goToAmount: () => void;
   validateAndAdvance: () => void;
   confirmAndAdvance: () => void;
@@ -31,6 +33,13 @@ export interface UseDepositFlowResult {
 
 /**
  * Step machine for the deposit flow.
+ *
+ * Step 3 (`ProcessingScreen`) used to be a fixed-delay placeholder.
+ * Stage 5 wires it to the real svarapro backend — when the user
+ * advances from amount → processing, we call `initiateDeposit` to get
+ * the on-chain address + tracker id, then move to step 4 only once the
+ * server responds. Card payments still take the pre-existing mock path
+ * (step 6) since the backend doesn't expose a card-acquirer flow yet.
  */
 export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepositFlowResult {
   const [step, setStep] = useState<number>(1);
@@ -39,6 +48,11 @@ export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepos
   const [errorMsg, setErrorMsg] = useState<string>('');
   const [secondsLeft, setSecondsLeft] = useState<number>(3600);
   const [success, setSuccess] = useState<boolean>(false);
+  const [instructions, setInstructions] = useState<PaymentInstructions | null>(null);
+  // Guard against double-fire if React StrictMode replays the effect or
+  // the user hammers the button — keeps a single `initiateDeposit`
+  // request in-flight per step-3 entry.
+  const requestKeyRef = useRef<string | null>(null);
 
   const methods = DEPOSIT_METHODS as unknown as DepositMethod[];
   const currentMethod = methods.find((m) => m.id === methodId) ?? null;
@@ -46,10 +60,48 @@ export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepos
 
   useEffect(() => {
     if (step !== 3 || !methodId) return undefined;
-    const delay = isCard ? 1800 : 1500;
-    const timer = setTimeout(() => setStep(isCard ? 6 : 4), delay);
-    return () => clearTimeout(timer);
-  }, [step, methodId, isCard]);
+    let cancelled = false;
+
+    if (isCard) {
+      // Card flow still uses the mocked confirmation pause until the
+      // backend exposes a card-acquirer endpoint.
+      const delay = 1800;
+      const timer = setTimeout(() => {
+        if (!cancelled) setStep(6);
+      }, delay);
+      return () => {
+        cancelled = true;
+        clearTimeout(timer);
+      };
+    }
+
+    // Crypto path → hit the server.
+    const key = `${methodId}:${amountInput}:${Date.now()}`;
+    requestKeyRef.current = key;
+    setInstructions(null);
+    setErrorMsg('');
+
+    (async () => {
+      try {
+        const result = await initiateDeposit({ methodId });
+        if (cancelled || requestKeyRef.current !== key) return;
+        setInstructions(result);
+        setStep(4);
+      } catch (error) {
+        if (cancelled || requestKeyRef.current !== key) return;
+        const message =
+          error instanceof Error ? error.message : 'Не удалось создать депозит';
+        setErrorMsg(message);
+        // Roll back to the amount step so the user can retry without
+        // losing their input.
+        setStep(2);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [step, methodId, isCard, amountInput]);
 
   useEffect(() => {
     if (step !== 5) {
@@ -95,6 +147,7 @@ export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepos
   const goBackToMethod = (): void => {
     setStep(1);
     setErrorMsg('');
+    setInstructions(null);
   };
 
   // Method → amount transition. Exposed as a named action instead of
@@ -116,6 +169,7 @@ export function useDepositFlow({ onDeposited }: UseDepositFlowOptions): UseDepos
     success,
     currentMethod,
     isCard,
+    instructions,
     goToAmount,
     validateAndAdvance,
     confirmAndAdvance,
