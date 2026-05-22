@@ -19,7 +19,14 @@ export {
   initiateWithdraw,
   methodIdToCurrency,
 } from './payments';
-export { fetchRoomById, fetchRooms, joinRoomByCode } from './rooms';
+export type { CreateRoomInput } from './rooms';
+export {
+  createRoom,
+  fetchRoomById,
+  fetchRooms,
+  joinRoom,
+  joinRoomByCode,
+} from './rooms';
 export {
   fetchTournamentLeaderboard,
   fetchTournaments,
