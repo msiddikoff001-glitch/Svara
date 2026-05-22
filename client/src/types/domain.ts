@@ -15,6 +15,8 @@ export interface User {
   played: number;
   won: number;
   earned: number;
+  /** Saved USDT-TON withdrawal address (null while empty/unsaved). */
+  walletAddress: string | null;
 }
 
 export interface Room {

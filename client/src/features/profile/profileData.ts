@@ -77,10 +77,6 @@ export const AGREEMENT_SECTIONS = [
   },
 ];
 
-// MOCK: shown until the user has actually invited someone. Server-driven
-// once the referrals API is wired up.
-export const MOCK_USER_REFERRALS = [{ name: 'Alexston', profit: 3 }];
-
 /**
  * Builds the `data:` URL for the dropdown chevron icon. Theme-aware so the
  * arrow stays legible on both light and dark backgrounds.

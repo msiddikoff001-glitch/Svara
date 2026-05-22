@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { memo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { BRAND, COLORS } from '../../../designSystem';
 import css from '../Profile.module.css';
@@ -17,10 +18,11 @@ type StatItem = readonly [value: string | number, label: string, color: string];
  * Pure presentational — gets all data from the parent.
  */
 function StatsTripletImpl({ played, winRatePercent, earned }: StatsTripletProps) {
+  const { t } = useTranslation();
   const items: StatItem[] = [
-    [played, 'Игр', COLORS.gold],
-    [winRatePercent + '%', 'Винрейт', COLORS.green],
-    ['$' + earned, 'Выиграно', BRAND.usdt],
+    [played, t('games_played'), COLORS.gold],
+    [winRatePercent + '%', t('win_rate'), COLORS.green],
+    ['$' + earned, t('earnings'), BRAND.usdt],
   ];
   return (
     <div className={css.statsRow}>

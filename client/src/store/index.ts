@@ -17,6 +17,8 @@ export type {
   SessionSlice,
 } from './gameStore';
 export { GAME_MODES, GAME_PHASES, useGameStore } from './gameStore';
+export type { ProfileLoadStatus, ProfileStoreState } from './profileStore';
+export { useProfileStore } from './profileStore';
 export type { RoomFilters, RoomMode, RoomStoreState, SeatCountFilter } from './roomStore';
 export { useRoomStore } from './roomStore';
 export type { Toast, ToastInput, ToastStoreState, ToastTone } from './toastStore';

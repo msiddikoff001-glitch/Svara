@@ -34,6 +34,7 @@ export const UserSchema = z.object({
   played: z.number().int().nonnegative(),
   won: z.number().int().nonnegative(),
   earned: MoneySchema,
+  walletAddress: z.string().nullable(),
 }) satisfies z.ZodType<User>;
 
 export const RoomSchema = z.object({

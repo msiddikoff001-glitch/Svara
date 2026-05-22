@@ -1,11 +1,13 @@
-import { memo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
+import type { ReferralData, ServerReferralEntry } from '../../../api/user';
 import { Sheet } from '../../../components/ui/Sheet';
 import { hapticTap } from '../../../services/haptics';
 import { shareToTelegram } from '../../../services/telegram';
 import { SheetCloseButton } from '../components/SheetCloseButton';
 import type { AffiliateLevelRow } from '../profileData';
-import { AFFILIATE_LEVELS, MOCK_USER_REFERRALS } from '../profileData';
+import { AFFILIATE_LEVELS } from '../profileData';
 import styles from './PartnerSheet.module.css';
 
 function StatBlock({ label, value }: { label: string; value: string }) {
@@ -17,17 +19,13 @@ function StatBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-interface UserReferral {
-  name: string;
-  profit: number;
-}
-
 function LevelTable() {
+  const { t } = useTranslation();
   return (
     <div className={styles.levelBox}>
       <div className={styles.levelHead}>
-        <div>Уровни</div>
-        <div>Депозиты</div>
+        <div>{t('levels')}</div>
+        <div>{t('refrules_table_deposits')}</div>
         <div className={styles.levelHeadRight}>%</div>
       </div>
       {AFFILIATE_LEVELS.map((row: AffiliateLevelRow, i: number) => (
@@ -44,23 +42,33 @@ function LevelTable() {
   );
 }
 
-function ReferralList() {
+function ReferralList({
+  referrals,
+  emptyLabel,
+  headLabel,
+  profitLabel,
+}: {
+  referrals: ServerReferralEntry[];
+  emptyLabel: string;
+  headLabel: string;
+  profitLabel: string;
+}) {
   return (
     <div className={styles.refList}>
       <div className={styles.refHead}>
-        <div>Рефералы</div>
-        <div>Профит</div>
+        <div>{headLabel}</div>
+        <div>{profitLabel}</div>
       </div>
-      {MOCK_USER_REFERRALS.length === 0 ? (
-        <div className={styles.refEmpty}>Пока никого нет</div>
+      {referrals.length === 0 ? (
+        <div className={styles.refEmpty}>{emptyLabel}</div>
       ) : (
-        MOCK_USER_REFERRALS.map((r: UserReferral, i: number) => (
+        referrals.map((r, i) => (
           <div
-            key={r.name + i}
+            key={(r.username ?? 'guest') + i}
             className={`${styles.refRow} ${i === 0 ? styles.first : ''}`}
           >
-            <div>{r.name}</div>
-            <div className={styles.refProfit}>${r.profit}</div>
+            <div>{r.username ?? '—'}</div>
+            <div className={styles.refProfit}>—</div>
           </div>
         ))
       )}
@@ -69,17 +77,31 @@ function ReferralList() {
 }
 
 /**
- * "Партнерская программа" sheet. Shows referral link, share buttons, the
- * level/% table and the user's current referrals. Copy state is local so
- * the parent doesn't have to know about it.
+ * "Партнерская программа" sheet. Renders the level/% table, the user's
+ * referral link (when available) and the referrals fetched from the
+ * server. Local UI state is limited to the "copied" pulse so re-renders
+ * stay scoped.
  */
 interface PartnerSheetProps {
   referralLink: string | null;
+  referralData: ReferralData | null;
   onClose: () => void;
 }
 
-function PartnerSheetImpl({ referralLink, onClose }: PartnerSheetProps) {
+function PartnerSheetImpl({ referralLink, referralData, onClose }: PartnerSheetProps) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+
+  const referrals = useMemo(
+    () => referralData?.referrals ?? [],
+    [referralData],
+  );
+  const refBonusLabel = referralData
+    ? `${referralData.refBonus.toFixed(0)}%`
+    : '0%';
+  const refBalanceLabel = referralData
+    ? `$ ${referralData.refBalance.toFixed(2)}`
+    : '$ 0.00';
 
   const copyLink = () => {
     if (!referralLink) return;
@@ -98,7 +120,7 @@ function PartnerSheetImpl({ referralLink, onClose }: PartnerSheetProps) {
     hapticTap();
     shareToTelegram({
       url: referralLink,
-      text: 'Присоединяйся к Svara — играй в Свару прямо в Telegram',
+      text: t('partner_subtitle'),
     });
   };
 
@@ -107,14 +129,17 @@ function PartnerSheetImpl({ referralLink, onClose }: PartnerSheetProps) {
       <div className={`profileSheetClose ${styles.closeWrap}`}>
         <SheetCloseButton onClick={onClose} />
       </div>
-      <div className={styles.title}>Партнерская программа</div>
+      <div className={styles.title}>{t('referral_program')}</div>
       <div className={styles.statsRow}>
-        <StatBlock label="Уровень" value="0%" />
-        <StatBlock label="Заработок" value="$ 0.00" />
+        <StatBlock label={t('partner_level')} value={refBonusLabel} />
+        <StatBlock label={t('partner_earnings')} value={refBalanceLabel} />
       </div>
-      <div className={styles.linkLabel}>Твоя реферальная ссылка</div>
-      <div className={styles.linkBox} style={{ color: 'var(--' + (referralLink ? 'text' : 'hint') + ')' }}>
-        {referralLink ?? 'Откройте приложение в Telegram, чтобы получить реферальную ссылку'}
+      <div className={styles.linkLabel}>{t('your_referral_link')}</div>
+      <div
+        className={styles.linkBox}
+        style={{ color: 'var(--' + (referralLink ? 'text' : 'hint') + ')' }}
+      >
+        {referralLink ?? t('referral_load_error')}
       </div>
       <div className={styles.actionsRow}>
         <button
@@ -122,45 +147,38 @@ function PartnerSheetImpl({ referralLink, onClose }: PartnerSheetProps) {
           onClick={copyLink}
           className={`${styles.actionBtn} ${copied ? styles.copied : ''}`}
         >
-          {copied ? '✓ Скопировано' : 'Скопировать'}
+          {copied ? `✓ ${t('copied')}` : t('copy_link')}
         </button>
         <button
           disabled={!referralLink}
           onClick={share}
           className={styles.actionBtn}
         >
-          Поделиться
+          {t('share')}
         </button>
       </div>
-      <div className={styles.h1}>Зарабатывайте вместе с нами!</div>
-      <div className={styles.descr}>
-        Приглашайте рефералов и получайте процент с их депозитов в зависимости от количества
-        привлечённых участников.
-      </div>
-      <div className={styles.h2}>Уровни</div>
+      <div className={styles.h1}>{t('earn_together')}</div>
+      <div className={styles.descr}>{t('partner_intro')}</div>
+      <div className={styles.h2}>{t('levels')}</div>
       <LevelTable />
-      <div className={styles.h3}>Условия</div>
+      <div className={styles.h3}>{t('conditions')}</div>
       <ul className={styles.rules}>
-        <li className={styles.rule}>· Реферал должен пополнить баланс от $100 и выше.</li>
-        <li className={styles.rule}>
-          · Процент начисляется с каждого депозита приглашённого реферала.
-        </li>
-        <li className={styles.rule}>
-          · Чем больше ваших рефералов и их депозитов — тем выше ваш доход.
-        </li>
-        <li className={styles.rule}>
-          · Начинайте приглашать и увеличивайте свой заработок уже сегодня!
-        </li>
-        <li>
-          · Когда ваш накопительный баланс достигнет 10$, сумма автоматически переводится на
-          игровой баланс.
-        </li>
+        <li className={styles.rule}>· {t('rule_deposit')}</li>
+        <li className={styles.rule}>· {t('rule_percent')}</li>
+        <li className={styles.rule}>· {t('rule_more')}</li>
+        <li className={styles.rule}>· {t('rule_invite')}</li>
+        <li>· {t('rule_threshold')}</li>
       </ul>
       <div className={styles.refsHead}>
-        <div className={styles.refsTitle}>Твои рефералы</div>
-        <div className={styles.refsBadge}>{MOCK_USER_REFERRALS.length}</div>
+        <div className={styles.refsTitle}>{t('your_referrals')}</div>
+        <div className={styles.refsBadge}>{referrals.length}</div>
       </div>
-      <ReferralList />
+      <ReferralList
+        referrals={referrals}
+        emptyLabel={t('no_referrals')}
+        headLabel={t('referrals')}
+        profitLabel={t('partner_earnings')}
+      />
     </Sheet>
   );
 }

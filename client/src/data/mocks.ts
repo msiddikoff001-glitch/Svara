@@ -19,6 +19,7 @@ export const MOCK_USER: User = {
   played: 84,
   won: 51,
   earned: 482,
+  walletAddress: null,
 };
 
 export const MOCK_ROOMS: Room[] = [

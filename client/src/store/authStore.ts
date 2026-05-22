@@ -36,6 +36,13 @@ export interface AuthStoreState {
   clearError: () => void;
   creditBalance: (delta: number) => BalanceRollback;
   debitBalance: (delta: number) => BalanceRollback;
+  /**
+   * Mirror the saved USDT-TON withdrawal address locally so the Profile
+   * screen reflects the new value immediately after `saveWalletAddress`
+   * resolves. The server is the source of truth — this is just a
+   * read-through cache.
+   */
+  setWalletAddress: (walletAddress: string | null) => void;
 }
 
 const round2 = (value: number): number => parseFloat(value.toFixed(2));
@@ -103,5 +110,9 @@ export const useAuthStore = create<AuthStoreState>((set, get) => ({
       user: { ...state.user, balance: round2(state.user.balance - delta) },
     }));
     return () => set((state) => ({ user: { ...state.user, balance: prevBalance } }));
+  },
+
+  setWalletAddress: (walletAddress) => {
+    set((state) => ({ user: { ...state.user, walletAddress } }));
   },
 }));

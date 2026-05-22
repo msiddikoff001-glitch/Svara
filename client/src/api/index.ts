@@ -21,4 +21,10 @@ export {
   fetchTournaments,
   registerForTournament,
 } from './tournaments';
-export { fetchCurrentUser, fetchTransactions } from './user';
+export type { ReferralData, ServerReferralEntry } from './user';
+export {
+  fetchCurrentUser,
+  fetchReferralData,
+  fetchTransactions,
+  saveWalletAddress,
+} from './user';

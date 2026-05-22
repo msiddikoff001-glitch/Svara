@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { MethodIcon } from '../../../components/icons/MethodIcon';
 import { COLORS } from '../../../designSystem';
@@ -7,12 +8,6 @@ import type { Transaction } from '../../../types/domain';
 import css from '../Profile.module.css';
 
 export type TransactionFilter = 'all' | 'deposit' | 'withdraw';
-
-const FILTERS = [
-  ['all', 'Все'],
-  ['deposit', 'Пополнения'],
-  ['withdraw', 'Выводы'],
-];
 
 function ArrowIcon({ isDeposit }: { isDeposit: boolean }) {
   return (
@@ -42,6 +37,7 @@ function ArrowIcon({ isDeposit }: { isDeposit: boolean }) {
 }
 
 function TransactionRow({ tx }: { tx: Transaction }) {
+  const { t } = useTranslation();
   const isDeposit = tx.type === 'deposit';
   const isPending = tx.status === 'pending';
   return (
@@ -66,11 +62,11 @@ function TransactionRow({ tx }: { tx: Transaction }) {
               color: isPending ? COLORS.gold : COLORS.green,
             } as CSSProperties}
           >
-            {isPending ? 'Pending' : 'Done'}
+            {isPending ? t('status_pending') : t('status_done')}
           </span>
         </div>
         <div className={css.txMeta}>
-          {isDeposit ? 'Пополнение' : 'Вывод'} · {tx.method} · {tx.date}
+          {isDeposit ? t('transaction_deposit') : t('transaction_withdraw')} · {tx.method} · {tx.date}
         </div>
       </div>
       <div style={{ flexShrink: 0 } as CSSProperties}>
@@ -89,9 +85,24 @@ interface HistoryPanelProps {
   transactions: Transaction[];
   filter: TransactionFilter;
   onFilterChange: (next: TransactionFilter) => void;
+  loading?: boolean;
 }
 
-function HistoryPanelImpl({ transactions, filter, onFilterChange }: HistoryPanelProps) {
+function HistoryPanelImpl({
+  transactions,
+  filter,
+  onFilterChange,
+  loading = false,
+}: HistoryPanelProps) {
+  const { t } = useTranslation();
+  const filters: Array<[TransactionFilter, string]> = useMemo(
+    () => [
+      ['all', t('filter_all')],
+      ['deposit', t('filter_deposits')],
+      ['withdraw', t('filter_withdrawals')],
+    ],
+    [t],
+  );
   const list =
     filter === 'all'
       ? transactions
@@ -99,12 +110,12 @@ function HistoryPanelImpl({ transactions, filter, onFilterChange }: HistoryPanel
   return (
     <div className={css.historyPanel}>
       <div className={css.historyTabs}>
-        {FILTERS.map(([key, label]) => (
+        {filters.map(([key, label]) => (
           <button
             key={key}
             onClick={(event) => {
               event.stopPropagation();
-              onFilterChange(key as TransactionFilter);
+              onFilterChange(key);
             }}
             className={
               filter === key ? `${css.historyTab} ${css.historyTabActive}` : css.historyTab
@@ -115,9 +126,17 @@ function HistoryPanelImpl({ transactions, filter, onFilterChange }: HistoryPanel
         ))}
       </div>
       <div className={css.historyList}>
-        {list.map((tx: Transaction) => (
-          <TransactionRow key={tx.id} tx={tx} />
-        ))}
+        {loading && list.length === 0 ? (
+          <div className={css.txMeta} style={{ padding: 16, textAlign: 'center' }}>
+            {t('loading')}
+          </div>
+        ) : list.length === 0 ? (
+          <div className={css.txMeta} style={{ padding: 16, textAlign: 'center' }}>
+            {t('no_transactions')}
+          </div>
+        ) : (
+          list.map((tx: Transaction) => <TransactionRow key={tx.id} tx={tx} />)
+        )}
       </div>
     </div>
   );
