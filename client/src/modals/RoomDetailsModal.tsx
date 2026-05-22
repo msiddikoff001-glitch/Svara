@@ -1,5 +1,6 @@
 import { useState } from 'react';
 
+import { joinRoom } from '../api/rooms';
 import { ErrorMsg } from '../components/ui/ErrorMsg';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { Sheet } from '../components/ui/Sheet';
@@ -8,7 +9,7 @@ import { COLORS, SPACING } from '../designSystem';
 import styles from './RoomDetailsModal.module.css';
 
 export interface RoomDetailsRoom {
-  id?: number | string;
+  id: number | string;
   num: number;
   players: number;
   max: number;
@@ -40,6 +41,7 @@ export function RoomDetailsModal({
   );
   const [passwordInput, setPasswordInput] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
   function submitPassword() {
     if (passwordInput === room.password) {
       setView('info');
@@ -48,6 +50,36 @@ export function RoomDetailsModal({
       setErrorMsg('Неверный пароль');
     }
   }
+
+  async function handleEnter() {
+    if (isJoining) return;
+    // Spectator mode doesn't go through `/rooms/:id/join` — the watch
+    // flow only subscribes to the game socket, so skipping the join
+    // call keeps the UX snappier and avoids racking up empty joins on
+    // crowded rooms.
+    if (mode !== 'join') {
+      (onEnter || onClose)();
+      return;
+    }
+    setIsJoining(true);
+    setErrorMsg('');
+    try {
+      // Best-effort — the server treats a re-join of an existing seat
+      // as a no-op and we rely on the socket gateway for the real
+      // game-state delivery. Surface failures so the user knows the
+      // tap didn't go through instead of dumping them into a half-
+      // joined room.
+      await joinRoom(room.id);
+      (onEnter || onClose)();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Не удалось войти в комнату';
+      setErrorMsg(message);
+    } finally {
+      setIsJoining(false);
+    }
+  }
+
   const canAfford = userBalance >= room.bet;
   return (
     <Sheet onClose={onClose}>
@@ -141,15 +173,14 @@ export function RoomDetailsModal({
                 </div>
               )}
               <div className={styles.balSpacer} />
+              <ErrorMsg msg={errorMsg} />
               <PrimaryButton
                 onClick={() => {
-                  (onEnter || onClose)();
+                  void handleEnter();
                 }}
-                disabled={!canAfford}
+                disabled={!canAfford || isJoining}
               >
-                {'Войти (ставка $'}
-                {room.bet}
-                {' USDT)'}
+                {isJoining ? 'Входим…' : `Войти (ставка $${room.bet} USDT)`}
               </PrimaryButton>
             </div>
           ) : (
@@ -159,7 +190,7 @@ export function RoomDetailsModal({
               </div>
               <PrimaryButton
                 onClick={() => {
-                  (onEnter || onClose)();
+                  void handleEnter();
                 }}
                 color="#2a3a4a"
               >

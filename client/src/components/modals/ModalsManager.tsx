@@ -206,6 +206,16 @@ export function ModalsManager() {
             setActiveScreen(SCREENS.lobby);
           }}
           onBack={() => openModal(MODALS.action)}
+          onJoin={(room) => {
+            // The server already added the user to the room (or to the
+            // spectator list when it's full), so we head straight into
+            // the game shell. `addRoom` keeps the lobby list in sync
+            // for the brief window before the rooms socket re-broadcasts.
+            preloadGameRoom();
+            addRoom(room);
+            showRoomLoader(room);
+            scheduleEnterRoom(room, GAME_MODES.join);
+          }}
         />
       )}
 

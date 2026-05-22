@@ -1,20 +1,15 @@
 import { useState } from 'react';
 
+import { createRoom } from '../api/rooms';
+import { ErrorMsg } from '../components/ui/ErrorMsg';
 import { PrimaryButton } from '../components/ui/PrimaryButton';
 import { Sheet } from '../components/ui/Sheet';
 import { TextInput } from '../components/ui/TextInput';
 import { COLORS } from '../designSystem';
-import { generateClientId } from '../utils/format';
+import type { Room } from '../types/domain';
 import styles from './CreateRoomModal.module.css';
 
-export interface CreateRoomPayload {
-  id: string;
-  num: number;
-  players: number;
-  max: number;
-  bet: number;
-  password?: string;
-}
+export type CreateRoomPayload = Room;
 
 export interface CreateRoomModalProps {
   onClose: () => void;
@@ -22,25 +17,55 @@ export interface CreateRoomModalProps {
   onCreate?: (room: CreateRoomPayload) => void;
 }
 
+/**
+ * Server rule for private rooms: the password is also the room id, so
+ * it has to be exactly six digits (see `CreateRoomDto`). We mirror that
+ * here client-side so the user gets immediate feedback instead of a
+ * 400 from the API.
+ */
+const PRIVATE_PASSWORD_PATTERN = /^\d{6}$/;
+
 export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalProps) {
   const [bet, setBet] = useState('1');
   const [maxPlayers, setMaxPlayers] = useState('6');
   const [isPrivate, setIsPrivate] = useState(false);
   const [password, setPassword] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    if (isSubmitting) return;
     const betValue = Number(bet) || 1;
-    const maxValue = Number(maxPlayers) || 6;
-    const passwordValue = isPrivate ? password.trim() : undefined;
-    onCreate?.({
-      id: generateClientId(),
-      num: Math.floor(100 + Math.random() * 900),
-      players: 1,
-      max: maxValue,
-      bet: betValue,
-      ...(passwordValue ? { password: passwordValue } : {}),
-    });
-    onClose();
+    if (betValue < 1) {
+      setErrorMsg('Минимальная ставка — $1');
+      return;
+    }
+    if (isPrivate && !PRIVATE_PASSWORD_PATTERN.test(password.trim())) {
+      setErrorMsg('Пароль должен состоять из 6 цифр');
+      return;
+    }
+
+    setErrorMsg('');
+    setIsSubmitting(true);
+    try {
+      const room = await createRoom({
+        minBet: betValue,
+        type: isPrivate ? 'private' : 'public',
+        password: isPrivate ? password.trim() : undefined,
+      });
+      // `maxPlayers` is a v143-only knob — the backend always allocates
+      // 6 seats. We keep the user's choice as a presentation cap so the
+      // lobby card matches their intent.
+      const cap = Number(maxPlayers) || 6;
+      onCreate?.({ ...room, max: Math.min(room.max, cap) });
+      onClose();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Не удалось создать комнату';
+      setErrorMsg(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   return (
     <Sheet onClose={onClose}>
@@ -110,7 +135,7 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
         </div>
         <div className={styles.privateLabelWrap}>
           <div className={styles.privateLabel}>{'Закрытая комната'}</div>
-          <div className={styles.privateHint}>{'Вход только по паролю'}</div>
+          <div className={styles.privateHint}>{'Вход только по паролю (6 цифр)'}</div>
         </div>
         <div className={`${styles.toggle} ${isPrivate ? styles.toggleOn : ''}`}>
           <div className={styles.toggleKnob} />
@@ -120,15 +145,25 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
         <div className={styles.passwordWrap}>
           <TextInput
             value={password}
-            onChange={(value) => setPassword(value.target.value)}
-            placeholder="Придумайте пароль"
+            onChange={(value) =>
+              setPassword(value.target.value.replace(/\D/g, '').slice(0, 6))
+            }
+            placeholder="Пароль (6 цифр)"
             type="number"
             className={password ? styles.passwordInputSpaced : undefined}
           />
         </div>
       )}
-      <PrimaryButton onClick={handleCreate} disabled={isPrivate && !password.trim()}>
-        {'Создать комнату'}
+      <ErrorMsg msg={errorMsg} />
+      <PrimaryButton
+        onClick={() => {
+          void handleCreate();
+        }}
+        disabled={
+          isSubmitting || (isPrivate && !PRIVATE_PASSWORD_PATTERN.test(password.trim()))
+        }
+      >
+        {isSubmitting ? 'Создаём…' : 'Создать комнату'}
       </PrimaryButton>
     </Sheet>
   );
