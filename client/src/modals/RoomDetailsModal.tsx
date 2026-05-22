@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { joinRoom } from '../api/rooms';
 import { ErrorMsg } from '../components/ui/ErrorMsg';
@@ -36,6 +37,7 @@ export function RoomDetailsModal({
   userBalance,
   onEnter,
 }: RoomDetailsModalProps) {
+  const { t } = useTranslation();
   const [view, setView] = useState<RoomDetailsView>(
     room.password && mode === 'join' ? 'password' : 'info',
   );
@@ -47,7 +49,7 @@ export function RoomDetailsModal({
       setView('info');
       setErrorMsg('');
     } else {
-      setErrorMsg('Неверный пароль');
+      setErrorMsg(t('room_details_password_wrong'));
     }
   }
 
@@ -73,7 +75,7 @@ export function RoomDetailsModal({
       (onEnter || onClose)();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Не удалось войти в комнату';
+        error instanceof Error ? error.message : t('join_room_failed');
       setErrorMsg(message);
     } finally {
       setIsJoining(false);
@@ -101,11 +103,9 @@ export function RoomDetailsModal({
                 <path d="M7 11V7a5 5 0 0 1 10 0v4" />
               </svg>
             </div>
-            <div className={styles.pwTitle}>{'Закрытая комната'}</div>
+            <div className={styles.pwTitle}>{t('room_details_password_title')}</div>
             <div className={styles.pwSub}>
-              {'Комната #'}
-              {room.num}
-              {' защищена паролем'}
+              {t('room_details_password_sub', { num: room.num })}
             </div>
           </div>
           <TextInput
@@ -114,7 +114,7 @@ export function RoomDetailsModal({
               setPasswordInput(event.target.value);
               setErrorMsg('');
             }}
-            placeholder="Введите пароль"
+            placeholder={t('room_details_password_placeholder')}
             type="number"
             style={{
               marginBottom: SPACING.lg,
@@ -126,17 +126,19 @@ export function RoomDetailsModal({
           />
           <ErrorMsg msg={errorMsg} />
           <PrimaryButton onClick={submitPassword} style={{ marginBottom: SPACING.lg }}>
-            {'Войти'}
+            {t('enter')}
           </PrimaryButton>
           <PrimaryButton onClick={onClose} color={COLORS.div}>
-            {'Отмена'}
+            {t('cancel')}
           </PrimaryButton>
         </div>
       )}
       {view === 'info' && (
         <>
           <div className={styles.infoTitle}>
-            {mode === 'join' ? 'Войти в комнату' : 'Смотреть комнату'}
+            {mode === 'join'
+              ? t('room_details_join_title')
+              : t('room_details_watch_title')}
           </div>
           <div className={styles.infoNum}>
             {'No. '}
@@ -144,9 +146,9 @@ export function RoomDetailsModal({
           </div>
           <div className={styles.infoCard}>
             {([
-              ['Игроки', room.players + ' / ' + room.max],
-              ['Ставка', '$' + room.bet + ' USDT'],
-              ['Банк', '$' + (room.players * room.bet).toFixed(2) + ' USDT'],
+              [t('players'), room.players + ' / ' + room.max],
+              [t('stake'), '$' + room.bet + ' USDT'],
+              [t('bank'), '$' + (room.players * room.bet).toFixed(2) + ' USDT'],
             ] as const).map((row) => (
               <div key={row[0]} className={styles.infoRow}>
                 <span className={styles.infoRowLabel}>{row[0]}</span>
@@ -156,7 +158,7 @@ export function RoomDetailsModal({
           </div>
           {mode === 'join' ? (
             <div>
-              <div className={styles.balLabel}>{'Ваш баланс'}</div>
+              <div className={styles.balLabel}>{t('room_details_balance_label')}</div>
               <div
                 className={styles.balCard}
                 style={{ color: canAfford ? COLORS.green : COLORS.red }}
@@ -167,9 +169,7 @@ export function RoomDetailsModal({
               </div>
               {!canAfford && (
                 <div className={styles.balErr}>
-                  {'Недостаточно средств. Нужно $'}
-                  {room.bet}
-                  {' USDT'}
+                  {t('room_details_insufficient', { bet: room.bet })}
                 </div>
               )}
               <div className={styles.balSpacer} />
@@ -180,21 +180,21 @@ export function RoomDetailsModal({
                 }}
                 disabled={!canAfford || isJoining}
               >
-                {isJoining ? 'Входим…' : `Войти (ставка $${room.bet} USDT)`}
+                {isJoining
+                  ? t('join_room_submitting')
+                  : t('room_details_join_button', { bet: room.bet })}
               </PrimaryButton>
             </div>
           ) : (
             <div>
-              <div className={styles.specCard}>
-                {'Режим наблюдателя. Вы видите игру без участия в ставках.'}
-              </div>
+              <div className={styles.specCard}>{t('room_details_spectator_text')}</div>
               <PrimaryButton
                 onClick={() => {
                   void handleEnter();
                 }}
                 color="#2a3a4a"
               >
-                {'Смотреть игру'}
+                {t('room_details_watch_button')}
               </PrimaryButton>
             </div>
           )}

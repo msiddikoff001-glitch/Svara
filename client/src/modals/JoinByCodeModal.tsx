@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { joinRoom } from '../api/rooms';
 import { ErrorMsg } from '../components/ui/ErrorMsg';
@@ -22,6 +23,7 @@ export interface JoinByCodeModalProps {
  * if the room doesn't exist or the user is banned.
  */
 export function JoinByCodeModal({ onClose, onBack, onJoin }: JoinByCodeModalProps) {
+  const { t } = useTranslation();
   const [roomCode, setRoomCode] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,7 +39,7 @@ export function JoinByCodeModal({ onClose, onBack, onJoin }: JoinByCodeModalProp
       onClose();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Не удалось войти в комнату';
+        error instanceof Error ? error.message : t('join_room_failed');
       setErrorMsg(message);
     } finally {
       setIsSubmitting(false);
@@ -48,11 +50,11 @@ export function JoinByCodeModal({ onClose, onBack, onJoin }: JoinByCodeModalProp
     <Sheet onClose={onClose}>
       <div className={styles.header}>
         <button onClick={onBack} className={styles.backBtn}>
-          {'Назад'}
+          {t('back')}
         </button>
-        <div className={styles.title}>{'Войти по коду'}</div>
+        <div className={styles.title}>{t('join_by_code_title')}</div>
       </div>
-      <div className={styles.hint}>{'Введите код комнаты от друга'}</div>
+      <div className={styles.hint}>{t('join_by_code_hint')}</div>
       <TextInput
         value={roomCode}
         onChange={(event) => {
@@ -74,7 +76,7 @@ export function JoinByCodeModal({ onClose, onBack, onJoin }: JoinByCodeModalProp
         }}
         disabled={!roomCode.trim() || isSubmitting}
       >
-        {isSubmitting ? 'Входим…' : 'Войти в комнату'}
+        {isSubmitting ? t('join_room_submitting') : t('join_room_button')}
       </PrimaryButton>
     </Sheet>
   );

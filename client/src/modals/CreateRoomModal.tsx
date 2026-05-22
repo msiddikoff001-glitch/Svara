@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { createRoom } from '../api/rooms';
 import { ErrorMsg } from '../components/ui/ErrorMsg';
@@ -26,6 +27,7 @@ export interface CreateRoomModalProps {
 const PRIVATE_PASSWORD_PATTERN = /^\d{6}$/;
 
 export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalProps) {
+  const { t } = useTranslation();
   const [bet, setBet] = useState('1');
   const [maxPlayers, setMaxPlayers] = useState('6');
   const [isPrivate, setIsPrivate] = useState(false);
@@ -37,11 +39,11 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
     if (isSubmitting) return;
     const betValue = Number(bet) || 1;
     if (betValue < 1) {
-      setErrorMsg('Минимальная ставка — $1');
+      setErrorMsg(t('create_min_bet_error'));
       return;
     }
     if (isPrivate && !PRIVATE_PASSWORD_PATTERN.test(password.trim())) {
-      setErrorMsg('Пароль должен состоять из 6 цифр');
+      setErrorMsg(t('create_password_6_digits_error'));
       return;
     }
 
@@ -61,7 +63,7 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
       onClose();
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Не удалось создать комнату';
+        error instanceof Error ? error.message : t('create_room_failed');
       setErrorMsg(message);
     } finally {
       setIsSubmitting(false);
@@ -71,12 +73,12 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
     <Sheet onClose={onClose}>
       <div className={styles.header}>
         <button onClick={onBack} className={styles.backBtn}>
-          {'Назад'}
+          {t('back')}
         </button>
-        <div className={styles.title}>{'Создать комнату'}</div>
+        <div className={styles.title}>{t('create_room')}</div>
       </div>
       <div className={styles.section}>
-        <div className={styles.sectionLabel}>{'Ставка (USDT)'}</div>
+        <div className={styles.sectionLabel}>{t('create_bet_label')}</div>
         <div className={styles.chipRow}>
           {['0.5', '1', '5', '10'].map((value) => (
             <button
@@ -92,12 +94,12 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
         <TextInput
           value={bet}
           onChange={(value) => setBet(value.target.value)}
-          placeholder="Или введите сумму"
+          placeholder={t('create_bet_placeholder')}
           type="number"
         />
       </div>
       <div className={styles.section}>
-        <div className={styles.sectionLabel}>{'Макс. игроков'}</div>
+        <div className={styles.sectionLabel}>{t('create_max_players_label')}</div>
         <div className={styles.chipRowTight}>
           {['2', '3', '4', '5', '6'].map((value) => (
             <button
@@ -134,8 +136,8 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
           </svg>
         </div>
         <div className={styles.privateLabelWrap}>
-          <div className={styles.privateLabel}>{'Закрытая комната'}</div>
-          <div className={styles.privateHint}>{'Вход только по паролю (6 цифр)'}</div>
+          <div className={styles.privateLabel}>{t('private_room_label')}</div>
+          <div className={styles.privateHint}>{t('private_room_hint')}</div>
         </div>
         <div className={`${styles.toggle} ${isPrivate ? styles.toggleOn : ''}`}>
           <div className={styles.toggleKnob} />
@@ -148,7 +150,7 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
             onChange={(value) =>
               setPassword(value.target.value.replace(/\D/g, '').slice(0, 6))
             }
-            placeholder="Пароль (6 цифр)"
+            placeholder={t('private_room_password_placeholder')}
             type="number"
             className={password ? styles.passwordInputSpaced : undefined}
           />
@@ -163,7 +165,7 @@ export function CreateRoomModal({ onClose, onBack, onCreate }: CreateRoomModalPr
           isSubmitting || (isPrivate && !PRIVATE_PASSWORD_PATTERN.test(password.trim()))
         }
       >
-        {isSubmitting ? 'Создаём…' : 'Создать комнату'}
+        {isSubmitting ? t('create_room_submitting') : t('create_room')}
       </PrimaryButton>
     </Sheet>
   );
